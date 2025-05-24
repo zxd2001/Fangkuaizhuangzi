@@ -2341,7 +2341,6 @@
             ['ywnz', ['仁', '夤', '寅']],
 
 
-
             
         ];
 
@@ -2363,36 +2362,52 @@
             const input = document.getElementById('inputText').value;
             let output = input;
 
-            // 1. 按音节长度降序排列，最长优先
+            // 按音节长度降序排列，最长优先
             mappingList.sort((a, b) => b[0].length - a[0].length);
 
-            // 2. 转换为小写用于匹配
-            const textLower = input.toLowerCase();
+            // 创建所有可能的音节的正则表达式
+            const syllablePatterns = mappingList.map(([syllable]) => syllable);
+            const syllableRegex = new RegExp(`(${syllablePatterns.join('|')})`, 'gi');
 
-            // 3. 遍历映射表进行替换
-            for (const [vnWord, hanNom] of mappingList) {
-                let searchKey = vnWord.toLowerCase();
-                // 如果文本中不包含这个音节，跳过
-                if (!textLower.includes(searchKey)) {
-                    continue;
+            // 先尝试匹配最长的音节
+            for (const [syllable, chars] of mappingList) {
+                const regex = new RegExp(`\\b${syllable}\\b`, 'gi');
+                if (chars.length === 1) {
+                    output = output.replace(regex, chars[0]);
+                } else {
+                    output = output.replace(regex, `【${chars.join('')}】`);
                 }
-
-                // 构建正则表达式，确保只匹配完整的音节
-                let patternStr = vnWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                let boundaryPattern = `(^|[^\\p{L}\\p{M}\\p{N}\\-])(${patternStr})(?=$|[^\\p{L}\\p{M}\\p{N}\\-])`;
-                let regex = new RegExp(boundaryPattern, 'ugi');
-
-                // 执行替换
-                output = output.replace(regex, (match, g1, g2) => {
-                    if (hanNom.length === 1) {
-                        return g1 + hanNom[0];
-                    } else {
-                        return g1 + `【${hanNom.join('')}】`;
-                    }
-                });
             }
 
-            // 4. 去除所有空格
+            // 处理连在一起的音节
+            let remainingText = output;
+            let processedText = '';
+            
+            while (remainingText.length > 0) {
+                let found = false;
+                for (const [syllable, chars] of mappingList) {
+                    const regex = new RegExp(`^${syllable}`, 'i');
+                    if (regex.test(remainingText)) {
+                        if (chars.length === 1) {
+                            processedText += chars[0];
+                        } else {
+                            processedText += `【${chars.join('')}】`;
+                        }
+                        remainingText = remainingText.slice(syllable.length);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // 如果找不到匹配的音节，保留当前字符
+                    processedText += remainingText[0];
+                    remainingText = remainingText.slice(1);
+                }
+            }
+            
+            output = processedText;
+
+            // 去除所有空格
             output = output.replace(/\s+/g, '');
 
             document.getElementById('result').textContent = output;
